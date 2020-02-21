@@ -14,11 +14,23 @@ import random
 
 from model import *
 from BatchLoader import *
-from DataProcessing import *
 
 
 
 if __name__ == '__main__':
+	'''
+	Takes in preprocessed data stored in an class object named 
+	'dataprocessor'
+	--attributes
+		.src  #input [batch_size, sequence_length, characters]
+		.tgt  #label [batch_size, sequence_length]
+		.max_word_length #max length of a word in the vocabulary
+		.w2n # word to integer mapping dictionary
+		.n2w # integer to word mapping dictionary
+		.c2n # character to integer mapping dictionary
+		.n2c # integer to charcter mapping dictionary
+
+	'''
 	character_vocabulary = 'abcdefghijklmnopqrstuvwxyz.,/\()-#*%^&[]{}|_;:<>?@$!+~`1234567890°' + "'" +'"'
 
 	#load data

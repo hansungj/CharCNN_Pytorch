@@ -33,16 +33,8 @@ if __name__ == '__main__':
 	'''
 	character_vocabulary = 'abcdefghijklmnopqrstuvwxyz.,/\()-#*%^&[]{}|_;:<>?@$!+~`1234567890°' + "'" +'"'
 
-	#load data
-	data = pd.read_csv('~/Desktop/4th_year/Thesis/Data/new_data/product_description.csv')
-	data = data.iloc[:,1].values
-
-	#tokenize and process data into usable form
-	k = 50000
-	dataprocessor = DataProcessor(data, character_vocabulary, k, keep = False)
 	max_w_length = dataprocessor.max_word_length
 	batch_size = 20
-	del data
 
 	#embedding hyperparameters
 	vocab_size = len(dataprocessor.c2n)

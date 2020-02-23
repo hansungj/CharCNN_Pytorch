@@ -147,6 +147,7 @@ class CharacterRNNLM(nn.Module):
 		
 		if bidirectional:
 			d_rnn *= 2
+			d_rnn *= 2
 
 		self.Classifier = Classifier(word_vocab_size, d_ff, d_rnn)
 

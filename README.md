@@ -1,5 +1,7 @@
 # CharCNN_Pytorch
  Implementation of CharCNN-RNN using Pytorch
+ 
+ ![CharcNN](https://github.com/hansungj/CharCNN_Pytorch/blob/master/charcnn.png)
 
 Contains
 1. model.py

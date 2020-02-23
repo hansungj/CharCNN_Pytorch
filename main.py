@@ -49,10 +49,10 @@ if __name__ == '__main__':
 	num_rnn_layers = 2
 	d_rnn = 200
 	d_ff = 500
-	lr = 0.0001
+	lr = 1.0
 
 	#training hyperparameter
-	epochs = 10
+	epochs = 25
 	k_fold = 10
 	shuffle = True
 
@@ -74,8 +74,12 @@ if __name__ == '__main__':
 							  				 dropout = dropout, bidirectional = False)
 
 		#define loss and optimizer
-		#optimizer = optim.SGD(model.parameters(), lr = lr)
-		optimizer = optim.Adam(model.parameters(), lr=lr)
+		optimizer = optim.SGD(model.parameters(), lr = lr)
+		'''
+		Adam reaches convergence faster much generalizes poorly
+		'''
+		#optimizer = optim.Adam(model.parameters(), lr=lr)
+
 		Opt = SpecOptimizer(model, optimizer, initial_lr = lr, max_norm = 5)
 		loss_fn = nn.NLLLoss(ignore_index= padding_idx)
 		LossCompute = LossComputer(Opt, loss_fn)

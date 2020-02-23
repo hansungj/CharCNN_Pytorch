@@ -13,4 +13,4 @@ Contains
 
 # References
 
-1. Character-Aware Neural Language Models: https://arxiv.org/abs/1508.06615
+1. Character-Aware Neural Language Models (2016): https://arxiv.org/abs/1508.06615

@@ -6,6 +6,9 @@
 Contains
 1. model.py
 2. BatchLoader.py
+3. Optimizer.py
+4. main.py
+
 
 
 # References

@@ -54,7 +54,7 @@ class SpecOptimizer:
 			self.lr /= 2
 			for p in self.optimizer.param_groups:
 				p['lr'] = self.lr
-				print('New learning rate is: {}'.format(self.lr))
+			print('New learning rate is: {}'.format(self.lr))
 
 		self._perplexity = perplexity
 

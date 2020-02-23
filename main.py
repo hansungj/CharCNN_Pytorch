@@ -76,8 +76,11 @@ if __name__ == '__main__':
 		#define loss and optimizer
 		optimizer = optim.SGD(model.parameters(), lr = lr)
 		'''
-		Adam reaches convergence faster much generalizes poorly
+		Adam reaches convergence faster and does not require
+		sophisticated learning rate scheduling
+		,but generalizes worse than SGD 
 		'''
+		
 		#optimizer = optim.Adam(model.parameters(), lr=lr)
 
 		Opt = SpecOptimizer(model, optimizer, initial_lr = lr, max_norm = 5)

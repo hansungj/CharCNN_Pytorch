@@ -150,7 +150,9 @@ class CharacterRNNLM(nn.Module):
 
 		self.RNNLM = RNNLM(rnn_type, self.word_dim, num_layers, d_rnn, dropout, bidirectional)
 
-		self.Classifier = Classifier(word_vocab_size, d_ff, d_rnn*2)
+		if bidirectional:
+			d_rnn *= 2
+		self.Classifier = Classifier(word_vocab_size, d_ff, d_rnn)
 
 	def forward(self, x, debug = False):
 

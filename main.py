@@ -51,6 +51,7 @@ if __name__ == '__main__':
 	d_rnn = 200
 	d_ff = 500
 	lr = 1.0
+	bidirectional = True
 
 	#training hyperparameter
 	epochs = 25
@@ -72,7 +73,7 @@ if __name__ == '__main__':
 		model = CharacterRNNLM(embedding_dim, vocab_size + 1,
 							 word_vocab_size + 1, padding_idx, kernels,
 							  num_filter, d_rnn = d_rnn, d_ff = d_ff, num_layers = num_rnn_layers,
-							  				 dropout = dropout, bidirectional = False)
+							  				 dropout = dropout, bidirectional = bidirectional)
 
 		#define loss and optimizer
 		optimizer = optim.SGD(model.parameters(), lr = lr)

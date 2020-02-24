@@ -50,7 +50,7 @@ class SpecOptimizer:
 
 	def update_lr(self, perplexity):
 
-		if (self._perplexity - perplexity) > 1.0:
+		if (self._perplexity - perplexity) < 1.0:
 			self.lr /= 2
 			for p in self.optimizer.param_groups:
 				p['lr'] = self.lr

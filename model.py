@@ -136,7 +136,12 @@ class CharacterRNNLM(nn.Module):
 						num_filters = 100, rnn_type = 'LSTM', num_layers = 3,
 						 d_rnn = 200, d_ff = 500, dropout = 0.5, bidirectional = False ):
 
+
+
 		super(CharacterRNNLM, self).__init__()
+		self.bidirectional = bidirectional
+		self.d_rnn = d_rnn
+
 		self.EmbeddingLayer = EmbeddingLayer(embedding_dim, vocab_size, padding_idx)
 		self.CharCNN = CharCNN(embedding_dim, kernels, num_filters)
 
@@ -144,12 +149,8 @@ class CharacterRNNLM(nn.Module):
 		self.HighwayNetwork = HighwayNetwork(self.word_dim)
 
 		self.RNNLM = RNNLM(rnn_type, self.word_dim, num_layers, d_rnn, dropout, bidirectional)
-		
-		if bidirectional:
-			d_rnn *= 2
-			d_rnn *= 2
 
-		self.Classifier = Classifier(word_vocab_size, d_ff, d_rnn)
+		self.Classifier = Classifier(word_vocab_size, d_ff, d_rnn*2)
 
 	def forward(self, x, debug = False):
 
@@ -163,6 +164,13 @@ class CharacterRNNLM(nn.Module):
 
 		z = z.view(seq_len, batch_size, -1)
 		z = self.RNNLM(z)
+
+		if self.bidirectional:
+			f_z, b_z = z[:-2,:,:self.d_rnn], z[2:,:,self.d_rnn:]
+			z = torch.cat((f_z,b_z), dim = -1)
+		else:
+			z = z[:-2,:,:]
+
 		z = z.view(z.size()[1], z.size()[0], -1)
 
 		return self.Classifier(z)

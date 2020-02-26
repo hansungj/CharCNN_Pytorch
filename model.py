@@ -36,9 +36,7 @@ class CharCNN(nn.Module):
 
 		The difference in output sizes of different CNN filters
 		are okay because we will be applying global pooling at the end
-		
-		Define graph nodes in initialization function 
-		connect these nodes in forward() function 
+
 		'''
 
 		super(CharCNN, self).__init__()
@@ -176,3 +174,4 @@ class CharacterRNNLM(nn.Module):
 		z = z.view(z.size()[1], z.size()[0], -1)
 
 		return self.Classifier(z)
+

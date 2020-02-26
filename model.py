@@ -34,9 +34,6 @@ class CharCNN(nn.Module):
 		This module will take a list of "n-grams" = "filter widths"
 		and create sum of N filters that will be concatenated 
 
-		The difference in output sizes of different CNN filters
-		are okay because we will be applying global pooling at the end
-
 		'''
 
 		super(CharCNN, self).__init__()

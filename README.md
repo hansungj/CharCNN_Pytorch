@@ -4,10 +4,11 @@
  ![CharcNN](https://github.com/hansungj/CharCNN_Pytorch/blob/master/charcnn.png)
 
 Contains
-1. model.py
-2. BatchLoader.py
-3. Optimizer.py
-4. main.py
+1. main.py
+2. model.py
+3. BatchLoader.py
+4. Optimizer.py
+5. DataGenerator.py
 
 
 

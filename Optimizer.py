@@ -10,13 +10,6 @@ import random
 
 
 class SpecOptimizer:
-	'''
-	We backpropagate for 35 time steps using stochastic gradient descent
-	where the learning rate is initially set to 1.0 and halved if the 
-	perplexity does not decrease by more than 1.0 on the validation set 
-	after an epoch.
-
-	'''
 
 	def __init__(self, model, optimizer, initial_lr = 0.01, max_norm = 5, perplexity = None):
 		self.lr = initial_lr
@@ -28,15 +21,9 @@ class SpecOptimizer:
 		self.max_norm = max_norm
 		self._step = 0
 		self.model = model
-		
-		'''
-		optimizer contains model parameters 
-		'''
+
 
 	def step(self):
-		'''
-		performs one step of optimization 
-		'''
 
 		self._step += 1
 

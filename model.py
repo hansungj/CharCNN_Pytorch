@@ -13,11 +13,7 @@ from DataProcessing import *
 class EmbeddingLayer(nn.Module):
 
 	def __init__(self, embedding_dim, vocab_size, padding_idx = 0):
-		'''
-		nn.Embedding takes 
-			input (*)
-			output (*, embedding_dim)
-		'''
+
 		super(EmbeddingLayer, self).__init__()
 		self.embedding = nn.Embedding(num_embeddings = vocab_size, embedding_dim =  embedding_dim, padding_idx = padding_idx) 
 
@@ -32,20 +28,18 @@ class EmbeddingLayer(nn.Module):
 
 class CharCNN(nn.Module):
 
-	def __init__(self, embedding_dim, kernels = [2,3,4,5,6,7], num_filters = [2,3,4,5,6,7]):
+	def __init__(self, embedding_dim, kernels = [2,3,4,5,6,7], num_filters = 15):
 
 		'''
 		This module will take a list of "n-grams" = "filter widths"
 		and create sum of N filters that will be concatenated 
-
-		The difference in output sizes of different CNN filters
-		are okay because we will be applying global pooling at the end
-
 		'''
 
 		super(CharCNN, self).__init__()
-		self.num_filters = sum(num_filter for num_filter in num_filters)
-		self.kernels = nn.ModuleList([nn.Conv2d(1 , num_filter , (kernel, embedding_dim) , stride = (1,1)) for kernel, num_filter in zip(kernels, num_filters)])
+		self.num_filters = sum(kernel*num_filters for kernel in kernels)
+
+		#self.kernels = nn.ModuleList([nn.Conv1d( embedding_dim, num_filter , kernel , stride = 1) for kernel, num_filter in zip(kernels, num_filters)])
+		self.kernels = nn.ModuleList([nn.Conv2d( 1 , num_filter*kernel , (kernel, embedding_dim) , stride = (1,1)) for kernel in kernels])
 
 	def forward(self, x):
 
@@ -54,11 +48,11 @@ class CharCNN(nn.Module):
 		output: [batch_size x temporal x num_filter]
 	
 		'''
-		x = [ F.relu(kernel(x).squeeze()) for kernel in self.kernels]
+
+		x = [ torch.sigmoid(kernel(x).squeeze()) for kernel in self.kernels]
 		x = [ F.max_pool1d(kernel, kernel.size()[-1]) for kernel in x]
 		x = torch.cat(x, dim = 1 )
 		return x
-
 
 class HighwayNetwork(nn.Module):
 
@@ -100,33 +94,40 @@ class RNNLM(nn.Module):
 
 		super(RNNLM, self).__init__()
 
+		self.rnn_type = rnn_type
+		self.d_rnn = d_rnn
+		self.num_layers = num_layers
+
 		if rnn_type in ['LSTM', 'GRU']:
-			self.RNN = getattr(nn, rnn_type)(d_model, d_rnn, num_layers, dropout = dropout, bidirectional = bidirectional)
+			self.RNN = getattr(nn, rnn_type)(d_model, d_rnn, num_layers, dropout = dropout, bidirectional = bidirectional, batch_first = True)
 
-	def forward(self, x):
+	def forward(self, x, hid):
 
-		x, _ = self.RNN(x)
-		return x
-		
+		x, hid = self.RNN(x, hid)
+		return x, hid
+
+	def init_hidden(self, batch_size):
+
+		if self.rnn_type == 'LSTM':
+			return (torch.zeros([self.num_layers, batch_size, self.d_rnn]),
+					torch.zeros([self.num_layers, batch_size, self.d_rnn]))
+		else:
+			return torch.zeros([self.num_layers, batch_size, self.d_rnn])
+			
 
 class Classifier(nn.Module):
 
-	def __init__(self, word_vocab_size, d_ff, input_dim, dropout = 0.5, num_ff_layers = 2):
+	def __init__(self, word_vocab_size,input_dim, dropout = 0.5, num_ff_layers = 2):
 
 		super(Classifier, self).__init__()
-		self.FFN = nn.ModuleList([nn.Linear(input_dim, d_ff)])
-		self.FFN.extend([nn.Linear(d_ff, d_ff) for _ in range(num_ff_layers-1)])
-		self.FFN.append(nn.Linear(d_ff, word_vocab_size))
-		
-		self.Sublayer = nn.ModuleList([SubLayer(d_ff, dropout) for _ in range(num_ff_layers)])
+		self.FFN = nn.Linear(input_dim, word_vocab_size)
+		self.Dropout = nn.Dropout(dropout)
 		self.Out = nn.LogSoftmax(dim=-1) #word_vocab_size
 
 	def forward(self, x):
 
-		for (layer, sublayer) in zip(self.FFN[:-1],self.Sublayer):
-			x = layer(x)
-			x = F.relu(sublayer(x))
-		x = self.FFN[-1](x)
+		x = self.Dropout(x)
+		x = self.FFN(x)
 		x = self.Out(x)
 		return x 
 
@@ -136,13 +137,12 @@ class CharacterRNNLM(nn.Module):
 	def __init__(self, max_w_length, embedding_dim, vocab_size, word_vocab_size, 
 						padding_idx = 0, kernels = [2,3,4,5,6,7], 
 						num_filters = 100, rnn_type = 'LSTM', num_layers = 3,
-						 d_rnn = 200, d_ff = 500, dropout = 0.5, bidirectional = False, jointly_train = False):
+						 d_rnn = 200, dropout = 0.5, bidirectional = False):
 
 
 
 		super(CharacterRNNLM, self).__init__()
 		self.bidirectional = bidirectional
-		self.jointly_train = jointly_train
 		self.d_rnn = d_rnn
 
 		self.EmbeddingLayer = EmbeddingLayer(embedding_dim, vocab_size, padding_idx)
@@ -153,12 +153,9 @@ class CharacterRNNLM(nn.Module):
 
 		self.RNNLM = RNNLM(rnn_type, self.word_dim, num_layers, d_rnn, dropout, bidirectional)
 
-		if bidirectional and not jointly_train:
-			d_rnn *= 2
+		self.Classifier = Classifier(word_vocab_size, d_rnn)
 
-		self.Classifier = Classifier(word_vocab_size, d_ff, d_rnn)
-
-	def forward(self, x, debug = False):
+	def forward(self, x):
 
 		x = self.EmbeddingLayer(x)
 
@@ -169,24 +166,39 @@ class CharacterRNNLM(nn.Module):
 		y = y.view(batch_size,  seq_len, -1)
 		z = self.HighwayNetwork(y)
 
-		z = z.view(seq_len, batch_size, -1)
-		z = self.RNNLM(z)
+		hid = self.RNNLM.init_hidden(z.size()[0])
+		z, _ = self.RNNLM(z, hid)
 
 		if self.bidirectional:
-			f_z, b_z = z[:-2,:,:self.d_rnn], z[2:,:,self.d_rnn:]
-
-			if self.jointly_train:
-				f_z = f_z.view(f_z.size()[1], f_z.size()[0], -1)
-				b_z = b_z.view(b_z.size()[1], b_z.size()[0], -1)
-				return self.Classifier(f_z), self.Classifier(b_z)
-
-			else:
-				z = torch.cat((f_z,b_z), dim = -1)
+			f_z, b_z = z[:,:-2,:self.d_rnn], z[:,2:,self.d_rnn:]
+			z = torch.cat((f_z,b_z), dim = -1)
 
 		else:
-			z = z[:-2,:,:]
-
-		z = z.view(z.size()[1], z.size()[0], -1)
+			z = z[:,:-2,:]
 
 		return self.Classifier(z)
 
+
+	
+	def embedding(self, x):
+
+		x = self.EmbeddingLayer(x)
+
+		batch_size, seq_len, mac_c_len, emb_dim = x.size()
+		x = x.view(batch_size * seq_len , 1, mac_c_len, emb_dim)
+
+		y = self.CharCNN(x)
+		y = y.view(batch_size,  seq_len, -1)
+		z = self.HighwayNetwork(y)
+  
+		hid = self.RNNLM.init_hidden(z.size()[0])
+    
+		emb = []
+		for s in range(z.size()[1]):
+			_, hid = self.RNNLM(z[:,s,:].unsqueeze(1), hid)
+
+			e = hid[0].mean(axis=0)
+			emb.append(e) 
+		
+		emb = torch.cat(emb)
+		return torch.mean(emb ,axis=0)

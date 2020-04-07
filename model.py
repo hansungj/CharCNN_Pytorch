@@ -37,8 +37,6 @@ class CharCNN(nn.Module):
 
 		super(CharCNN, self).__init__()
 		self.num_filters = sum(kernel*num_filters for kernel in kernels)
-
-		#self.kernels = nn.ModuleList([nn.Conv1d( embedding_dim, num_filter , kernel , stride = 1) for kernel, num_filter in zip(kernels, num_filters)])
 		self.kernels = nn.ModuleList([nn.Conv2d( 1 , num_filter*kernel , (kernel, embedding_dim) , stride = (1,1)) for kernel in kernels])
 
 	def forward(self, x):
@@ -70,6 +68,7 @@ class HighwayNetwork(nn.Module):
 class SubLayer(nn.Module):
 
 	def __init__(self, d_model, dropout = 0.5):
+
 		'''
 		applies layer normalization and dropout
 	
@@ -181,6 +180,9 @@ class CharacterRNNLM(nn.Module):
 
 	
 	def embedding(self, x):
+		'''
+		creates sentence embeddings by averaging the LSTM hidden states
+		'''
 
 		x = self.EmbeddingLayer(x)
 

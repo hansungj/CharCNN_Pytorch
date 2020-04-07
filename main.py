@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
 
+import adabound
 import os, copy, pickle
 
 import numpy as np
@@ -50,7 +51,6 @@ num_filter = 20
 dropout = 0.5
 num_rnn_layers = 2
 d_rnn = 200
-d_ff = 500
 lr = 1.0
 bidirectional = True
 
@@ -71,22 +71,18 @@ for fold, (train_idx, val_idx)  in enumerate(kfold.split(dataprocessor.src)):
 	print('TRAINING {}TH FOLD--------'.format(fold))
 
 	#define model
-	model = CharacterRNNLM(embedding_dim, vocab_size + 1,
+	model = CharacterRNNLM(max_w_length, embedding_dim, vocab_size + 1,
 						 word_vocab_size + 1, padding_idx, kernels,
-						  num_filter, d_rnn = d_rnn, d_ff = d_ff, num_layers = num_rnn_layers,
+						  num_filter, d_rnn = d_rnn, num_layers = num_rnn_layers,
 						  				 dropout = dropout, bidirectional = bidirectional)
 
 	#define loss and optimizer
-	optimizer = optim.SGD(model.parameters(), lr = lr)
-	'''
-	Adam reaches convergence faster and does not require
-	sophisticated learning rate scheduling
-	,but generalizes worse than SGD 
-	'''
+	#optimizer = optim.SGD(model.parameters(), lr = lr)
 
-	#optimizer = optim.Adam(model.parameters(), lr=lr)
+	optimizer = adabound.AdaBound(model.parameters(), lr=1e-4, final_lr=0.01)
+	scheduler = None
 
-	Opt = SpecOptimizer(model, optimizer, initial_lr = lr, max_norm = 5)
+	Opt = SpecOptimizer(model, optimizer, scheduler, initial_lr = lr, max_norm = 5)
 	loss_fn = nn.NLLLoss(ignore_index= padding_idx)
 	LossCompute = LossComputer(Opt, loss_fn)
 
@@ -109,19 +105,12 @@ for fold, (train_idx, val_idx)  in enumerate(kfold.split(dataprocessor.src)):
 		 														model, LossCompute, epoch)
 		total_loss.append(epoch_loss)
 		total_val_loss.append(epoch_val_loss)
-		#total_val_perplexity.append(epoch_val_perplexity)
+		total_val_perplexity.append(epoch_val_perplexity)
 
-		#save model
-		torch.save(model.state_dict(), 'model_{}.pth'.format(fold))
-
-	history['train_loss'] = tuple(total_loss)
-	history['val_loss'] = tuple(total_val_loss)
-
-	# #save model
-	# torch.save(model.state_dict(), 'model_{}.pth'.format(fold))
-
-	#save training history
-	with open('model_{}_hist.pickle'.format(fold), 'wb') as handle:
-		pickle.dump(history, handle, protocol=pickle.HIGHEST_PROTOCOL)
+	
+	torch.save({'fold': fold, 'epoch': epoch,'model_state_dict': model.state_dict(),
+				 'optimizer_state_dict': optimizer.state_dict(),'training_loss': tuple(total_loss),
+				  'validation_loss': tuple(total_val_loss), 'validation_perplexity': tuple(total_val_perplexity)},
+				   PATH)
 
 

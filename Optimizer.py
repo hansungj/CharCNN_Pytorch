@@ -11,7 +11,8 @@ import random
 
 class SpecOptimizer:
 
-	def __init__(self, model, optimizer, initial_lr = 0.01, max_norm = 5, perplexity = None):
+
+	def __init__(self, model, optimizer, scheduler = None, initial_lr = 0.01, max_norm = 5, perplexity = None):
 		self.lr = initial_lr
 		if perplexity is None:
 			self._perplexity = 1e12
@@ -21,42 +22,48 @@ class SpecOptimizer:
 		self.max_norm = max_norm
 		self._step = 0
 		self.model = model
-
+		self.scheduler = scheduler
+		
+		'''
+		optimizer contains model parameters 
+		'''
 
 	def step(self):
+		'''
+		performs one step of optimization 
+		'''
 
 		self._step += 1
 
-		#truncated bptt
-
 		#gradient clipping
 		for name, p in self.model.named_parameters():
-			if name[:5] == 'RNNLM':
-				_ = nn.utils.clip_grad_norm_(p, max_norm =self.max_norm )
+			_ = nn.utils.clip_grad_norm_(p, max_norm =self.max_norm )
 
 
 		self.optimizer.step()
+		if self.scheduler is not None:
+			self.scheduler.step()
 		
 	def zero_grad(self):
 		self.optimizer.zero_grad()
 
 	def update_lr(self, perplexity):
 
-		if (self._perplexity - perplexity) < 1.0:
-			self.lr /= 2
-			for p in self.optimizer.param_groups:
-				p['lr'] = self.lr
-			print('New learning rate is: {}'.format(self.lr))
+		if self.scheduler is None:
+			if (self._perplexity - perplexity) < 1.0:
+				self.lr /= 2
+				for p in self.optimizer.param_groups:
+					p['lr'] = self.lr
+				print('New learning rate is: {}'.format(self.lr))
 
-		self._perplexity = perplexity
+			self._perplexity = perplexity
 
 
 class LossComputer:
 
-	def __init__(self, optimizer, loss_fn, jointly_train = False):
+	def __init__(self, optimizer, loss_fn):
 		self.loss_fn = loss_fn 
 		self.optimizer = optimizer
-		self.jointly_train = jointly_train
 
 	def __call__(self, out, tgt):
 
@@ -65,34 +72,80 @@ class LossComputer:
 		if jointly trained, output from the model will be a tuple of output tensors
 		'''
 
-		if self.jointly_train:
-			loss = self.loss_fn(out[0].transpose(1,2),tgt)
-			loss += self.loss_fn(out[1].transpose(1,2),tgt)
-		else:
-			loss = self.loss_fn(out.transpose(1, 2) ,tgt)
+		loss = self.loss_fn(out.transpose(1, 2) ,tgt)
 
 		loss.backward()
 
 		self.optimizer.step()
-		self.optimizer.zero_grad()
+		self.optimizer.optimizer.zero_grad()
 
 		return loss
 
 	def update_lr(self, perplexity):
-		self.optimizer.update_lr(perplexity)
+		perplexity = None
+		#self.optimizer.update_lr(perplexity)
 
 
-def run_epoch(data, val_data, model, loss_compute, epoch, verbose = 20, jointly_train = False):
+
+class DataGenerator:
+	'''
+	creates synthetic data for model verification
+	'''
+
+
+	def __init__(self, dic = None, C_voc_size = 2, W_voc_size = 3, word_length = 2, seq_length = 3, nbatches = 100, vbatches = 10):
+		self.dic = {i: tuple([random.randint(1,C_voc_size) for _ in range(word_length)]) for i in range(W_voc_size)}
+		self.C_voc_size = C_voc_size
+		self.W_voc_size = W_voc_size
+		self.word_length = word_length
+		self.seq_length = seq_length
+		self.nbatches = nbatches
+		self.vbatches = vbatches
+
+	def __call__(self, batch_size, train = True):
+
+		if train == True:
+			nbatches = self.nbatches
+		else:
+			nbatches = self.vbatches
+
+		for i in range(nbatches):
+			tgt = np.random.randint(0, self.W_voc_size, size=(batch_size, self.seq_length)) #target should be [batch_size, seq_length]
+			#source should be [batch_size, seq_length, word_length]
+
+			src = np.zeros([batch_size, self.seq_length, self.word_length],dtype=int)
+			for i in range(batch_size):
+				for j in range(self.seq_length-1):
+					src[i,j,: ] = np.array(self.dic[tgt[i,j+1]], dtype = int)
+
+			src = torch.from_numpy(src[:,:-1,:])
+			tgt = torch.from_numpy(tgt[:,1:])
+			yield src, tgt
+
+
+	def easy_gen(self, batch_size):
+
+		for i in range(self.nbatches):
+			tgt = np.random.randint(0, self.W_voc_size, size=(batch_size, self.seq_length))
+			src = np.zeros([batch_size, self.seq_length, self.word_length],dtype=int)
+			for i in range(batch_size):
+				for j in range(self.seq_length-1):
+					for k in range(self.word_length):
+						src[i,j,k ] = tgt[i,j+1]
+
+			src = torch.from_numpy(src[:,:,:])
+			tgt = torch.from_numpy(tgt[:,1:])
+
+			yield src, tgt
+
+
+def run_epoch(data, val_data, model, loss_compute, epoch, verbose = 1000):
 
 	total_loss = 0
 	model.train()
 	for i, (src, tgt) in enumerate(data):
-		if jointly_train:
-			f_out, b_out = model(src)
-			loss_one_step = loss_compute((f_out,b_out), tgt)
-		else:
-			out = model(src)
-			loss_one_step = loss_compute(out, tgt)
+		out = model(src)
+		loss_one_step = loss_compute(out, tgt)
 		total_loss += float(loss_one_step)
 
 		if i % verbose == 0:
@@ -104,14 +157,8 @@ def run_epoch(data, val_data, model, loss_compute, epoch, verbose = 20, jointly_
 	total_val_loss = 0
 	model.eval()
 	for i, (val_src, val_tgt) in enumerate(val_data):
-		if jointly_train:
-			val_f_out, val_b_out = model(val_src)
-
-			val_loss = loss_compute.loss_fn(val_f_out.transpose(1, 2), val_tgt) 
-			val_loss += loss_compute.loss_fn(val_b_out.transpose(1, 2), val_tgt) 
-		else:
-			val_out = model(val_src)
-			val_loss = loss_compute.loss_fn(val_out.transpose(1, 2), val_tgt)
+		val_out = model(val_src)
+		val_loss = loss_compute.loss_fn(val_out.transpose(1, 2), val_tgt)
 
 		#note that perplexity is the inverse of negative log likelihood
 		val_perplexity += float(torch.exp(val_loss))

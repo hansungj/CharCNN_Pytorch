@@ -47,18 +47,6 @@ class SpecOptimizer:
 	def zero_grad(self):
 		self.optimizer.zero_grad()
 
-	def update_lr(self, perplexity):
-
-		if self.scheduler is None:
-			if (self._perplexity - perplexity) < 1.0:
-				self.lr /= 2
-				for p in self.optimizer.param_groups:
-					p['lr'] = self.lr
-				print('New learning rate is: {}'.format(self.lr))
-
-			self._perplexity = perplexity
-
-
 class LossComputer:
 
 	def __init__(self, optimizer, loss_fn):
@@ -80,10 +68,6 @@ class LossComputer:
 		self.optimizer.optimizer.zero_grad()
 
 		return loss
-
-	def update_lr(self, perplexity):
-		perplexity = None
-		#self.optimizer.update_lr(perplexity)
 
 
 def run_epoch(data, val_data, model, loss_compute, epoch, verbose = 1000):
@@ -113,7 +97,6 @@ def run_epoch(data, val_data, model, loss_compute, epoch, verbose = 1000):
 	
 	total_val_loss /= i
 	val_perplexity /= i
-	loss_compute.update_lr(val_perplexity)
 
 	print('At {} Epoch, Avg Loss: {}, Avg Validation Loss: {}, Avg Perplexity on Validation Set: {}'.format(epoch,total_loss, total_val_loss, val_perplexity))
 

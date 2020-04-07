@@ -9,30 +9,21 @@ import random
 
 class DataIterator:
 
-	def __init__(self, src, tgt, max_word_length, batch_size, shuffle = True):
+	def __init__(self, src, tgt, max_word_length, batch_size, shuffle = False):
 
 		self.max_word_length = max_word_length
 		self.batch_size = batch_size
 		self.shuffle = shuffle
-		self.src = src
-		self.tgt = tgt
+		self.src, self.tgt = zip(*sorted(zip(src, tgt), key=lambda x: len(x[1])))
 
 	def __call__(self):
-
-		batches = self.create_batches()
-		for src, tgt in batches :
+		for src, tgt in self.create_batches():
 			yield src, tgt
 
 	def create_batches(self):
 		'''
 		pad inputs character-wise
 		'''
-		if self.shuffle:
-			zipped = list(zip(self.src, self.tgt))
-			random.shuffle(zipped)
-			self.src, self.tgt = zip(*zipped)
-
-
 		print('Preparing data...')
 		print(self.max_word_length)
 		torch_src = []
@@ -53,7 +44,11 @@ class DataIterator:
 				for j in range(len(self.src[bi+i])):
 					src_padded[i, j, :len(self.src[bi+i][j])] = self.src[bi+i][j] #copy over characters
 
-			torch_src.append(torch.from_numpy(src_padded).to(torch.int64))
-			torch_tgt.append(torch.from_numpy(tgt_padded).to(torch.int64))
+			torch_src.append(torch.from_numpy(src_padded).to(torch.int64).cuda())
+			torch_tgt.append(torch.from_numpy(tgt_padded).to(torch.int64).cuda())
 
 		return zip(torch_src,torch_tgt)
+
+
+
+

@@ -1,14 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch import optim
-
-
-import numpy as np
-import random
-from Optimizer import *
-from BatchLoader import *
-from DataProcessing import *
 
 class EmbeddingLayer(nn.Module):
 

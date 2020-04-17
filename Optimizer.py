@@ -67,11 +67,6 @@ class LossComputer:
 
 	def __call__(self, out, tgt):
 
-		'''
-
-		if jointly trained, output from the model will be a tuple of output tensors
-		'''
-
 		loss = self.loss_fn(out.transpose(1, 2) ,tgt)
 
 		loss.backward()
